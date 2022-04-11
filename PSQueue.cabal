@@ -6,8 +6,8 @@ build-type:          Simple
 license:             BSD3
 license-file:        LICENSE
 author:              Ralf Hinze
-maintainer:          Hackage Trustees <trustees@hackage.haskell.org>
-bug-reports:         https://github.com/hackage-trustees/PSQueue/issues
+maintainer:          Teo Camarasu <teofilcamarasu@gmail.com>
+bug-reports:         https://github.com/TeofilC/PSQueue/issues
 synopsis:            Priority Search Queue
 category:            Data Structures
 description:         A /priority search queue/ efficiently supports the
@@ -21,7 +21,7 @@ description:         A /priority search queue/ efficiently supports the
 extra-source-files:  ChangeLog.md
 source-repository head
     type: git
-    location: https://github.com/hackage-trustees/PSQueue.git
+    location: https://github.com/TeofilC/PSQueue.git
 
 library
     exposed-modules:    Data.PSQueue
