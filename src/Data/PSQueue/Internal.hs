@@ -1,76 +1,85 @@
-{- |
-
-A /priority search queue/ (henceforth /queue/) efficiently supports the
-opperations of both a search tree and a priority queue. A 'Binding' is a
-product of a key and a priority. Bindings can be inserted, deleted, modified
-and queried in logarithmic time, and the binding with the least priority can be
-retrieved in constant time. A queue can be built from a list of bindings,
-sorted by keys, in linear time.
-
-This implementation is due to Ralf Hinze.
-
-* [Hinze, R., A Simple Implementation Technique for Priority Search Queues, ICFP 2001, pp. 110-121](http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.18.1149)
-
--}
-
--- Some modifications by Scott Dillard
-
-
-module Data.PSQueue
-    (
-    -- * Binding Type
-    Binding((:->))
-    , key
-    , prio
-    -- * Priority Search Queue Type
-    , PSQ
-    -- * Query
-    , size
-    , null
-    , lookup
-    -- * Construction
-    , empty
-    , singleton
-    -- * Insertion
-    , insert
-    , insertWith
-    -- * Delete/Update
-    , delete
-    , adjust
-    , adjustWithKey
-    , update
-    , updateWithKey
-    , alter
-    -- * Conversion
-    , keys
-    , toList
-    , toAscList
-    , toDescList
-    , fromList
-    , fromAscList
-    , fromDistinctAscList
-    -- * Priority Queue
-    , findMin
-    , deleteMin
-    , minView
-    , atMost
-    , atMostRange
-    -- * Fold
-    , foldr
-    , foldl
-) where
+module Data.PSQueue.Internal 
+  (
+  -- * Binding Type
+    Binding(..)
+  , key
+  , prio
+  -- * Priority Search Queue Type
+  , PSQ(..)
+  -- * Query
+  , size
+  , null
+  , lookup
+  -- * Construction
+  , empty
+  , singleton
+  -- * Insertion
+  , insert
+  , insertWith
+  , insertWithKey
+  -- * Delete/Update
+  , delete
+  , adjust
+  , adjustWithKey
+  , update
+  , updateWithKey
+  , alter
+  -- * Conversion
+  , keys
+  , fromList
+  , fromAscList
+  , fromDistinctAscList
+  , foldm
+  , toList
+  , toAscList
+  , toAscLists
+  , toDescList
+  , toDescLists
+  -- * Priority Queue
+  , findMin
+  , deleteMin
+  , minView
+  , secondBest
+  , atMost
+  , atMosts
+  , atMostRange
+  , atMostRanges
+  , inrange
+  -- * Fold
+  , foldr
+  , foldl
+  -- * Internals
+  , Size
+  , LTree(..)
+  , size'
+  , left
+  , right
+  , maxKey
+  , lloser
+  , rloser
+  , omega
+  , lbalance
+  , rbalance
+  , lbalanceLeft
+  , lbalanceRight
+  , rbalanceLeft
+  , rbalanceRight
+  , lsingleLeft
+  , rsingleLeft
+  , lsingleRight
+  , rsingleRight
+  , ldoubleLeft
+  , ldoubleRight
+  , rdoubleLeft
+  , rdoubleRight
+  , play
+  , unsafePlay
+  , TourView(..)
+  , tourView
+  ) where
 
 import           Prelude hiding (foldl, foldr, lookup, null)
 import qualified Prelude as P
-
-{-
--- testing
-import Test.QuickCheck
-import Data.List (sort)
--}
-
-
-
 
 -- | @k :-> p@ binds the key @k@ with the priority @p@.
 data Binding k p = k :-> p deriving (Eq,Ord,Show,Read)
@@ -84,7 +93,6 @@ key  (k :-> _) =  k
 -- | The priority of a binding
 prio :: Binding k p -> p
 prio (_ :-> p) =  p
-
 
 
 -- | A mapping from keys @k@ to priorites @p@.
@@ -593,70 +601,3 @@ instance Show a => Show (Sequ a) where
 guard :: Bool -> Sequ a -> Sequ a
 guard False _as = emptySequ
 guard True  as  = as
-
-
-
-
----------------------------------
------------- Tests --------------
----------------------------------
-
-{-
-
-isBalanced Start = True
-isBalanced (LLoser s k p l m r) =
-  (size' l + size' r <= 2 ||(size' l<=omega*size' r && size' r<=omega*size' l))
-  && isBalanced l && isBalanced r
-isBalanced (RLoser s k p l m r) =
-  (size' l + size' r <= 2 ||(size' l<=omega*size' r && size' r<=omega*size' l))
-  && isBalanced l && isBalanced r
-
-instance (Ord k, Ord p, Arbitrary k, Arbitrary p) => Arbitrary (PSQ k p)
-  where
-    coarbitrary = undefined
-    arbitrary =
-      do ks <- arbitrary
-         ps <- arbitrary
-         return . fromList $ zipWith (:->) ks ps
-
-prop_Balanced :: PSQ Int Int -> Bool
-prop_Balanced Void = True
-prop_Balanced (Winner _ _ t _) = isBalanced t
-
-prop_OrderedKeys :: PSQ Int Int -> Bool
-prop_OrderedKeys t = let ks = map key . toAscList $ t in sort ks == ks
-
-prop_AtMost :: (PSQ Int Int,Int) -> Bool
-prop_AtMost (t,p) =
-  let ps = map prio . atMost p $ t
-  in all (<=p) ps
-
-prop_AtMostRange :: (PSQ Int Int,Int,Int,Int) -> Bool
-prop_AtMostRange (t,p,l_,r_) =
-  let l = min (abs l_) (abs r_)
-      r = max (abs l_) (abs r_)
-      (ks,ps) = unzip . map (\b -> (key b,prio b)) . atMostRange p (l,r) $ t
-  in  all (flip inrange (l,r)) ks && all (<=p) ps
-
-prop_MinView :: PSQ Int Int -> Bool
-prop_MinView t =
-  case minView t of
-    Nothing -> True
-    Just (b1,t') ->
-      case minView t' of
-        Nothing -> True
-        Just (b2,_) -> prio b1 <= prio b2 && prop_MinView t'
-
-tests =
-  do
-  putStrLn "Balanced"
-  quickCheck prop_Balanced
-  putStrLn "OrderedKeys"
-  quickCheck prop_OrderedKeys
-  putStrLn "MinView"
-  quickCheck prop_MinView
-  putStrLn "AtMost"
-  quickCheck prop_AtMost
-  putStrLn "AtMostRange"
-  quickCheck prop_AtMostRange
--}
