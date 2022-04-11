@@ -22,6 +22,7 @@ Tested-With: GHC ==8.8.4 || ==8.10.7 || ==9.0.2 || ==9.2.2
 extra-source-files:  ChangeLog.md
 source-repository head
     type: git
+    branch: main
     location: https://github.com/TeofilC/PSQueue.git
 
 library
