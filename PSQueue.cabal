@@ -18,7 +18,7 @@ description:
   can be retrieved in constant time.  A queue can be built
   from a list of bindings, sorted by keys, in linear time.
 
-tested-with:        GHC ==8.8.4 || ==8.10.7 || ==9.0.2 || ==9.2.2 || ==9.4.1
+tested-with:        GHC ==8.8.4 || ==8.10.7 || ==9.0.2 || ==9.2.4 || ==9.4.1
 extra-source-files: ChangeLog.md
 
 source-repository head
