@@ -12,7 +12,7 @@ synopsis:           Priority Search Queue
 category:           Data Structures
 description:
   A /priority search queue/ efficiently supports the
-  opperations of both a search tree and a priority queue. A
+  operations of both a search tree and a priority queue. A
   'Binding' is a product of a key and a priority.  Bindings
   can be inserted, deleted, modified and queried in
   logarithmic time, and the binding with the least priority

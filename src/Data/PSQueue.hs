@@ -1,7 +1,7 @@
 {- |
 
 A /priority search queue/ (henceforth /queue/) efficiently supports the
-opperations of both a search tree and a priority queue. A 'Binding' is a
+operations of both a search tree and a priority queue. A 'Binding' is a
 product of a key and a priority. Bindings can be inserted, deleted, modified
 and queried in logarithmic time, and the binding with the least priority can be
 retrieved in constant time. A queue can be built from a list of bindings,
