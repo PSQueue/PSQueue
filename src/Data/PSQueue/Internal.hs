@@ -82,7 +82,7 @@ import           Prelude hiding (foldl, foldr, lookup, null)
 import qualified Prelude as P
 
 -- | @k :-> p@ binds the key @k@ with the priority @p@.
-data Binding k p = k :-> p deriving (Eq,Ord,Show,Read)
+data Binding k p = !k :-> !p deriving (Eq,Ord,Show,Read)
 
 infix 0 :->
 
@@ -97,7 +97,7 @@ prio (_ :-> p) =  p
 
 -- | A mapping from keys @k@ to priorites @p@.
 
-data PSQ k p = Void | Winner k p (LTree k p) k
+data PSQ k p = Void | Winner !k !p !(LTree k p) !k
 
 instance (Show k, Show p, Ord k, Ord p) => Show (PSQ k p) where
   show = show . toAscList
@@ -416,8 +416,8 @@ foldl f z q =
 type Size = Int
 
 data LTree k p = Start
-               | LLoser {-# UNPACK #-}!Size !k !p (LTree k p) !k (LTree k p)
-               | RLoser {-# UNPACK #-}!Size !k !p (LTree k p) !k (LTree k p)
+               | LLoser {-# UNPACK #-}!Size !k !p !(LTree k p) !k !(LTree k p)
+               | RLoser {-# UNPACK #-}!Size !k !p !(LTree k p) !k !(LTree k p)
 
 
 size' :: LTree k p -> Size
@@ -555,7 +555,7 @@ Winner k p t m  `unsafePlay`  Winner k' p' t' m'
 
 
 
-data TourView k p = Null | Single k p | PSQ k p `Play` PSQ k p
+data TourView k p = Null | Single !k !p | !(PSQ k p) `Play` !(PSQ k p)
 
 tourView :: (Ord k) => PSQ k p -> TourView k p
 
