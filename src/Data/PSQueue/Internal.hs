@@ -73,7 +73,6 @@ module Data.PSQueue.Internal
   , rdoubleLeft
   , rdoubleRight
   , play
-  , unsafePlay
   , TourView(..)
   , tourView
   ) where
@@ -99,7 +98,7 @@ prio (_ :-> p) =  p
 
 data PSQ k p = Void | Winner !k !p !(LTree k p) !k
 
-instance (Show k, Show p, Ord k, Ord p) => Show (PSQ k p) where
+instance (Show k, Show p) => Show (PSQ k p) where
   show = show . toAscList
   --show Void = "[]"
   --show (Winner k1 p lt k2) = "Winner "++show k1++" "++show p++" ("++show lt++") "++show k2
@@ -119,7 +118,8 @@ null (Winner _ _ _ _) = False
 
 -- | /O(log n)/ The priority of a given key, or Nothing if the key is not
 -- bound.
-lookup :: (Ord k, Ord p) => k -> PSQ k p -> Maybe p
+{-# INLINABLE lookup #-}
+lookup :: Ord k => k -> PSQ k p -> Maybe p
 lookup k q =
   case tourView q of
     Null -> fail "PSQueue.lookup: Empty queue"
@@ -132,15 +132,16 @@ lookup k q =
 
 
 
-empty :: (Ord k, Ord p) => PSQ k p
+empty :: PSQ k p
 empty = Void
 
 -- | O(1) Build a queue with one binding.
-singleton :: (Ord k, Ord p) => k -> p -> PSQ k p
+singleton :: k -> p -> PSQ k p
 singleton k p =  Winner k p Start k
 
 
 -- | /O(log n)/ Insert a binding into the queue.
+{-# INLINABLE insert #-}
 insert :: (Ord k, Ord p) => k -> p -> PSQ k p -> PSQ k p
 insert k p q =
   case tourView q of
@@ -160,6 +161,7 @@ insertWith :: (Ord k, Ord p) => (p->p->p) -> k -> p -> PSQ k p -> PSQ k p
 insertWith f = insertWithKey (\_ p p'-> f p p')
 
 -- | /O(log n)/ Insert a binding with a combining function.
+{-# INLINABLE insertWithKey #-}
 insertWithKey :: (Ord k, Ord p) => (k->p->p->p) -> k -> p -> PSQ k p -> PSQ k p
 insertWithKey f k p q =
   case tourView q of
@@ -170,12 +172,13 @@ insertWithKey f k p q =
         EQ -> singleton k  (f k p p')
         GT -> singleton k' p' `play` singleton k  p
     tl `Play` tr
-      | k <= maxKey tl -> insertWithKey f k p tl `unsafePlay` tr
-      | otherwise      -> tl `unsafePlay` insertWithKey f k p tr
+      | k <= maxKey tl -> insertWithKey f k p tl `play` tr
+      | otherwise      -> tl `play` insertWithKey f k p tr
 
 
 
 -- | /O(log n)/ Remove a binding from the queue.
+{-# INLINABLE delete #-}
 delete :: (Ord k, Ord p) => k -> PSQ k p -> PSQ k p
 delete k q =
   case tourView q of
@@ -192,6 +195,7 @@ adjust ::  (Ord p, Ord k) => (p -> p) -> k -> PSQ k p -> PSQ k p
 adjust f = adjustWithKey (\_ p -> f p)
 
 -- | /O(log n)/ Adjust the priority of a key.
+{-# INLINABLE adjustWithKey #-}
 adjustWithKey :: (Ord k, Ord p) => (k -> p -> p) -> k -> PSQ k p -> PSQ k p
 adjustWithKey f k q =
   case tourView q of
@@ -200,8 +204,8 @@ adjustWithKey f k q =
       | k == k'   -> singleton k' (f k p)
       | otherwise -> singleton k' p
     tl `Play` tr
-      | k <= maxKey tl -> adjustWithKey f k tl `unsafePlay` tr
-      | otherwise      -> tl `unsafePlay` adjustWithKey f k tr
+      | k <= maxKey tl -> adjustWithKey f k tl `play` tr
+      | otherwise      -> tl `play` adjustWithKey f k tr
 
 
 -- | /O(log n)/ The expression (@update f k q@) updates the
@@ -217,6 +221,7 @@ update f = updateWithKey (\_ p -> f p)
 -- the binding is deleted. If it is (@'Just' z@), the key @k@ is bound
 -- to the new priority @z@.
 
+{-# INLINABLE updateWithKey #-}
 updateWithKey :: (Ord k, Ord p) => (k -> p -> Maybe p) -> k -> PSQ k p -> PSQ k p
 updateWithKey f k q =
   case tourView q of
@@ -227,12 +232,14 @@ updateWithKey f k q =
                   Just p' -> singleton k p'
       | otherwise -> singleton k' p
     tl `Play` tr
-      | k <= maxKey tl -> updateWithKey f k tl `unsafePlay` tr
-      | otherwise      -> tl `unsafePlay` updateWithKey f k tr
+      | k <= maxKey tl -> updateWithKey f k tl `play` tr
+      | otherwise      -> tl `play` updateWithKey f k tr
 
 
 -- | /O(log n)/. The expression (@'alter' f k q@) alters the priority @p@ bound to @k@, or absence thereof.
 -- alter can be used to insert, delete, or update a priority in a queue.
+
+{-# INLINABLE alter #-}
 alter :: (Ord k, Ord p) => (Maybe p -> Maybe p) -> k -> PSQ k p -> PSQ k p
 alter f k q =
   case tourView q of
@@ -248,13 +255,13 @@ alter f k q =
                         Nothing -> singleton k' p
                         Just p' -> insert k p' $ singleton k' p
     tl `Play` tr
-      | k <= maxKey tl -> alter f k tl `unsafePlay` tr
-      | otherwise      -> tl `unsafePlay` alter f k tr
+      | k <= maxKey tl -> alter f k tl `play` tr
+      | otherwise      -> tl `play` alter f k tr
 
 
 
 -- | /O(n)/ The keys of a priority queue
-keys :: (Ord k, Ord p) => PSQ k p -> [k]
+keys :: PSQ k p -> [k]
 keys = map key . toList
 
 -- | /O(n log n)/ Build a queue from a list of bindings.
@@ -263,7 +270,8 @@ fromList = P.foldr (\(k:->p) q -> insert k p q) empty
 
 -- | /O(n)/ Build a queue from a list of bindings in order of
 -- ascending keys. The precondition that the keys are ascending is not checked.
-fromAscList :: (Ord k, Ord p) => [Binding k p] -> PSQ k p
+{-# INLINABLE fromAscList #-}
+fromAscList :: (Eq k, Ord p) => [Binding k p] -> PSQ k p
 fromAscList = fromDistinctAscList . stripEq
   where stripEq []     = []
         stripEq (x:xs) = stripEq' x xs
@@ -274,8 +282,9 @@ fromAscList = fromDistinctAscList . stripEq
 
 -- | /O(n)/ Build a queue from a list of distinct bindings in order of
 -- ascending keys. The precondition that keys are distinct and ascending is not checked.
-fromDistinctAscList :: (Ord k, Ord p) => [Binding k p] -> PSQ k p
-fromDistinctAscList = foldm unsafePlay empty . map (\(k:->p) -> singleton k p)
+{-# INLINABLE fromDistinctAscList #-}
+fromDistinctAscList :: Ord p => [Binding k p] -> PSQ k p
+fromDistinctAscList = foldm play empty . map (\(k:->p) -> singleton k p)
 
 -- Folding a list in a binary-subdivision scheme.
 foldm :: (a -> a -> a) -> a -> [a] -> a
@@ -289,24 +298,24 @@ foldm (*) e x
                 (a2, as2) = rec m       as1
 
 -- | /O(n)/ Convert a queue to a list.
-toList :: (Ord k, Ord p) => PSQ k p -> [Binding k p]
+toList :: PSQ k p -> [Binding k p]
 toList = toAscList
 
 -- | /O(n)/ Convert a queue to a list in ascending order of keys.
-toAscList :: (Ord k, Ord p) => PSQ k p -> [Binding k p]
+toAscList :: PSQ k p -> [Binding k p]
 toAscList q  = seqToList (toAscLists q)
 
-toAscLists :: (Ord k, Ord p) => PSQ k p -> Sequ (Binding k p)
+toAscLists :: PSQ k p -> Sequ (Binding k p)
 toAscLists q = case tourView q of
   Null         -> emptySequ
   Single k p   -> singleSequ (k :-> p)
   tl `Play` tr -> toAscLists tl <+> toAscLists tr
 
 -- | /O(n)/ Convert a queue to a list in descending order of keys.
-toDescList :: (Ord k, Ord p) => PSQ k p -> [ Binding k p ]
+toDescList :: PSQ k p -> [ Binding k p ]
 toDescList q = seqToList (toDescLists q)
 
-toDescLists :: (Ord k, Ord p) => PSQ k p -> Sequ (Binding k p)
+toDescLists :: PSQ k p -> Sequ (Binding k p)
 toDescLists q = case tourView q of
   Null         -> emptySequ
   Single k p   -> singleSequ (k :-> p)
@@ -314,22 +323,22 @@ toDescLists q = case tourView q of
 
 
 -- | /O(1)/ The binding with the lowest priority.
-findMin :: (Ord k, Ord p) => PSQ k p -> Maybe (Binding k p)
+findMin :: PSQ k p -> Maybe (Binding k p)
 findMin Void             = Nothing
 findMin (Winner k p t m) = Just (k :-> p)
 
 -- | /O(log n)/ Remove the binding with the lowest priority.
-deleteMin :: (Ord k, Ord p) => PSQ k p -> PSQ k p
+deleteMin :: Ord p => PSQ k p -> PSQ k p
 deleteMin Void             = Void
 deleteMin (Winner k p t m) = secondBest t m
 
 -- | /O(log n)/ Retrieve the binding with the least priority, and the rest of
 -- the queue stripped of that binding.
-minView :: (Ord k, Ord p) => PSQ k p -> Maybe (Binding k p, PSQ k p)
+minView :: Ord p => PSQ k p -> Maybe (Binding k p, PSQ k p)
 minView Void             = Nothing
 minView (Winner k p t m) = Just ( k :-> p , secondBest t m )
 
-secondBest :: (Ord k, Ord p) => LTree k p -> k -> PSQ k p
+secondBest :: Ord p => LTree k p -> k -> PSQ k p
 secondBest Start _m                  = Void
 secondBest (LLoser _ k p tl m tr) m' = Winner k p tl m `play` secondBest tr m'
 secondBest (RLoser _ k p tl m tr) m' = secondBest tl m `play` Winner k p tr m'
@@ -343,10 +352,10 @@ secondBest (RLoser _ k p tl m tr) m' = secondBest tl m `play` Winner k p tr m'
 -- @
 --   atMost p' q = filter (\\(k:->p) -> p<=p') . toList
 -- @
-atMost :: (Ord k, Ord p) => p -> PSQ k p -> [Binding k p]
+atMost :: Ord p => p -> PSQ k p -> [Binding k p]
 atMost pt q = seqToList (atMosts pt q)
 
-atMosts :: (Ord k, Ord p) => p -> PSQ k p -> Sequ (Binding k p)
+atMosts :: Ord p => p -> PSQ k p -> Sequ (Binding k p)
 atMosts _pt Void  = emptySequ
 atMosts pt (Winner k p t _) =  prune k p t
   where
@@ -364,11 +373,12 @@ atMosts pt (Winner k p t _) =  prune k p t
 -- @
 --    atMostRange p' (l,u) q = filter (\\(k:->p) -> l<=k && k<=u ) . 'atMost' p'
 -- @
+{-# INLINABLE atMostRange #-}
 atMostRange :: (Ord k, Ord p) => p -> (k, k) -> PSQ k p -> [Binding k p]
 atMostRange pt (kl, kr) q = seqToList (atMostRanges pt (kl, kr) q)
 
+{-# INLINABLE atMostRanges #-}
 atMostRanges :: (Ord k, Ord p) => p -> (k, k) -> PSQ k p -> Sequ (Binding k p)
-
 atMostRanges _pt _range Void = emptySequ
 atMostRanges pt range@(kl, kr) (Winner k p t _) = prune k p t
   where
@@ -383,14 +393,15 @@ atMostRanges pt range@(kl, kr) (Winner k p t _) = prune k p t
   traverse k p (RLoser _ k' p' tl m tr) =
     guard (kl <= m) (traverse k p tl) <+> guard (m <= kr) (prune k' p' tr)
 
-inrange :: (Ord a) => a -> (a, a) -> Bool
+{-# INLINE inrange #-}
+inrange :: Ord a => a -> (a, a) -> Bool
 a `inrange` (l, r)  =  l <= a && a <= r
 
 
 
 
 -- | Right fold over the bindings in the queue, in key order.
-foldr :: (Ord k,Ord p) => (Binding k p -> b -> b) -> b -> PSQ k p -> b
+foldr :: (Binding k p -> b -> b) -> b -> PSQ k p -> b
 foldr f z q =
   case tourView q of
     Null       -> z
@@ -399,7 +410,7 @@ foldr f z q =
 
 
 -- | Left fold over the bindings in the queue, in key order.
-foldl :: (Ord k,Ord p) => (b -> Binding k p -> b) -> b -> PSQ k p -> b
+foldl :: (b -> Binding k p -> b) -> b -> PSQ k p -> b
 foldl f z q =
   case tourView q of
     Null       -> z
@@ -447,41 +458,53 @@ rloser k p tl m tr =  RLoser (1 + size' tl + size' tr) k p tl m tr
 omega :: Int
 omega = 4
 
+{-# INLINABLE lbalance #-}
+{-# INLINABLE rbalance #-}
 lbalance, rbalance ::
-  (Ord k, Ord p) => k-> p -> LTree k p -> k -> LTree k p -> LTree k p
+  Ord p => k -> p -> LTree k p -> k -> LTree k p -> LTree k p
 
+lbalance k p Start m r        = lloser        k p Start m r
+lbalance k p l m Start        = lloser        k p l m Start
 lbalance k p l m r
-  | size' l + size' r < 2     = lloser        k p l m r
   | size' r > omega * size' l = lbalanceLeft  k p l m r
   | size' l > omega * size' r = lbalanceRight k p l m r
   | otherwise               = lloser        k p l m r
 
+rbalance k p Start m r        = rloser        k p Start m r
+rbalance k p l m Start        = rloser        k p l m Start
 rbalance k p l m r
-  | size' l + size' r < 2     = rloser        k p l m r
   | size' r > omega * size' l = rbalanceLeft  k p l m r
   | size' l > omega * size' r = rbalanceRight k p l m r
   | otherwise               = rloser        k p l m r
 
+{-# INLINABLE lbalanceLeft #-}
+lbalanceLeft :: Ord p => k -> p -> LTree k p -> k -> LTree k p -> LTree k p
 lbalanceLeft  k p l m r
   | size' (left r) < size' (right r) = lsingleLeft  k p l m r
   | otherwise                      = ldoubleLeft  k p l m r
 
+{-# INLINABLE lbalanceRight #-}
+lbalanceRight :: Ord p => k -> p -> LTree k p -> k -> LTree k p -> LTree k p
 lbalanceRight k p l m r
   | size' (left l) > size' (right l) = lsingleRight k p l m r
   | otherwise                      = ldoubleRight k p l m r
 
-
+{-# INLINABLE rbalanceLeft #-}
+rbalanceLeft :: Ord p => k -> p -> LTree k p -> k -> LTree k p -> LTree k p
 rbalanceLeft  k p l m r
   | size' (left r) < size' (right r) = rsingleLeft  k p l m r
   | otherwise                      = rdoubleLeft  k p l m r
 
+{-# INLINABLE rbalanceRight #-}
+rbalanceRight :: Ord p => k -> p -> LTree k p -> k -> LTree k p -> LTree k p
 rbalanceRight k p l m r
   | size' (left l) > size' (right l) = rsingleRight k p l m r
   | otherwise                      = rdoubleRight k p l m r
 
 
 
-
+{-# INLINABLE lsingleLeft #-}
+lsingleLeft :: Ord p => k -> p -> LTree k p -> k -> LTree k p -> LTree k p
 lsingleLeft k1 p1 t1 m1 (LLoser _ k2 p2 t2 m2 t3)
   | p1 <= p2  = lloser k1 p1 (rloser k2 p2 t1 m1 t2) m2 t3
   | otherwise = lloser k2 p2 (lloser k1 p1 t1 m1 t2) m2 t3
@@ -489,18 +512,22 @@ lsingleLeft k1 p1 t1 m1 (LLoser _ k2 p2 t2 m2 t3)
 lsingleLeft k1 p1 t1 m1 (RLoser _ k2 p2 t2 m2 t3) =
   rloser k2 p2 (lloser k1 p1 t1 m1 t2) m2 t3
 
+rsingleLeft :: k -> p -> LTree k p -> k -> LTree k p -> LTree k p
 rsingleLeft k1 p1 t1 m1 (LLoser _ k2 p2 t2 m2 t3) =
   rloser k1 p1 (rloser k2 p2 t1 m1 t2) m2 t3
 
 rsingleLeft k1 p1 t1 m1 (RLoser _ k2 p2 t2 m2 t3) =
   rloser k2 p2 (rloser k1 p1 t1 m1 t2) m2 t3
 
+lsingleRight :: k -> p -> LTree k p -> k -> LTree k p -> LTree k p
 lsingleRight k1 p1 (LLoser _ k2 p2 t1 m1 t2) m2 t3 =
   lloser k2 p2 t1 m1 (lloser k1 p1 t2 m2 t3)
 
 lsingleRight k1 p1 (RLoser _ k2 p2 t1 m1 t2) m2 t3 =
   lloser k1 p1 t1 m1 (lloser k2 p2 t2 m2 t3)
 
+{-# INLINABLE rsingleRight #-}
+rsingleRight :: Ord p => k -> p -> LTree k p -> k -> LTree k p -> LTree k p
 rsingleRight k1 p1 (LLoser _ k2 p2 t1 m1 t2) m2 t3 =
   lloser k2 p2 t1 m1 (rloser k1 p1 t2 m2 t3)
 
@@ -509,33 +536,40 @@ rsingleRight k1 p1 (RLoser _ k2 p2 t1 m1 t2) m2 t3
   | otherwise = rloser k2 p2 t1 m1 (rloser k1 p1 t2 m2 t3)
 
 
-
+{-# INLINABLE ldoubleLeft #-}
+ldoubleLeft :: Ord p => k -> p -> LTree k p -> k -> LTree k p -> LTree k p
 ldoubleLeft k1 p1 t1 m1 (LLoser _ k2 p2 t2 m2 t3) =
   lsingleLeft k1 p1 t1 m1 (lsingleRight k2 p2 t2 m2 t3)
 
 ldoubleLeft k1 p1 t1 m1 (RLoser _ k2 p2 t2 m2 t3) =
   lsingleLeft k1 p1 t1 m1 (rsingleRight k2 p2 t2 m2 t3)
 
+{-# INLINABLE ldoubleRight #-}
+ldoubleRight :: Ord p => k -> p -> LTree k p -> k -> LTree k p -> LTree k p
 ldoubleRight k1 p1 (LLoser _ k2 p2 t1 m1 t2) m2 t3 =
   lsingleRight k1 p1 (lsingleLeft k2 p2 t1 m1 t2) m2 t3
 
 ldoubleRight k1 p1 (RLoser _ k2 p2 t1 m1 t2) m2 t3 =
   lsingleRight k1 p1 (rsingleLeft k2 p2 t1 m1 t2) m2 t3
 
+{-# INLINABLE rdoubleLeft #-}
+rdoubleLeft :: Ord p => k -> p -> LTree k p -> k -> LTree k p -> LTree k p
 rdoubleLeft k1 p1 t1 m1 (LLoser _ k2 p2 t2 m2 t3) =
   rsingleLeft k1 p1 t1 m1 (lsingleRight k2 p2 t2 m2 t3)
 
 rdoubleLeft k1 p1 t1 m1 (RLoser _ k2 p2 t2 m2 t3) =
   rsingleLeft k1 p1 t1 m1 (rsingleRight k2 p2 t2 m2 t3)
 
+{-# INLINABLE rdoubleRight #-}
+rdoubleRight :: Ord p => k -> p -> LTree k p -> k -> LTree k p -> LTree k p
 rdoubleRight k1 p1 (LLoser _ k2 p2 t1 m1 t2) m2 t3 =
   rsingleRight k1 p1 (lsingleLeft k2 p2 t1 m1 t2) m2 t3
 
 rdoubleRight k1 p1 (RLoser _ k2 p2 t1 m1 t2) m2 t3 =
   rsingleRight k1 p1 (rsingleLeft k2 p2 t1 m1 t2) m2 t3
 
-
-play :: (Ord k, Ord p) => PSQ k p -> PSQ k p -> PSQ k p
+{-# INLINABLE play #-}
+play :: Ord p => PSQ k p -> PSQ k p -> PSQ k p
 
 Void `play` t' = t'
 t `play` Void  = t
@@ -544,21 +578,11 @@ Winner k p t m  `play`  Winner k' p' t' m'
   | p <= p'   = Winner k  p  (rbalance k' p' t m t') m'
   | otherwise = Winner k' p' (lbalance k  p  t m t') m'
 
-unsafePlay :: (Ord k, Ord p) => PSQ k p -> PSQ k p -> PSQ k p
-
-Void `unsafePlay` t' =  t'
-t `unsafePlay` Void  =  t
-
-Winner k p t m  `unsafePlay`  Winner k' p' t' m'
-  | p <= p'   = Winner k  p  (rbalance k' p' t m t') m'
-  | otherwise = Winner k' p' (lbalance k  p  t m t') m'
-
-
 
 data TourView k p = Null | Single !k !p | !(PSQ k p) `Play` !(PSQ k p)
 
-tourView :: (Ord k) => PSQ k p -> TourView k p
-
+tourView :: PSQ k p -> TourView k p
+{-# INLINE tourView #-}
 tourView Void                  =  Null
 tourView (Winner k p Start _m) =  Single k p
 
