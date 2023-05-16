@@ -77,6 +77,7 @@ module Data.PSQueue.Internal
   , tourView
   ) where
 
+import           Data.Function (on)
 import           Prelude hiding (foldl, foldr, lookup, null)
 import qualified Prelude as P
 
@@ -103,7 +104,8 @@ instance (Show k, Show p) => Show (PSQ k p) where
   --show Void = "[]"
   --show (Winner k1 p lt k2) = "Winner "++show k1++" "++show p++" ("++show lt++") "++show k2
 
-
+instance (Eq k, Eq p) => Eq (PSQ k p) where
+  (==) = (==) `on` toAscList
 
 
 -- | /O(1)/ The number of bindings in a queue.
@@ -338,6 +340,7 @@ minView :: Ord p => PSQ k p -> Maybe (Binding k p, PSQ k p)
 minView Void             = Nothing
 minView (Winner k p t m) = Just ( k :-> p , secondBest t m )
 
+{-# INLINABLE secondBest #-}
 secondBest :: Ord p => LTree k p -> k -> PSQ k p
 secondBest Start _m                  = Void
 secondBest (LLoser _ k p tl m tr) m' = Winner k p tl m `play` secondBest tr m'
