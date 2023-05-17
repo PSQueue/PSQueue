@@ -47,4 +47,4 @@ test-suite test
   build-depends:
       base
     , PSQueue
-    , QuickCheck
+    , QuickCheck < 3
