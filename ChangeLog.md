@@ -1,3 +1,11 @@
+### 1.2.0
+
+- Fix typos (Thanks to @Moiman) [#8](https://github.com/PSQueue/PSQueue/pull/8)
+- Improve performance, strictness, and remove redundant constraints (Thanks to @treeowl) [#9](https://github.com/PSQueue/PSQueue/pull/9)
+- Support GHC-9.4 [#6](https://github.com/PSQueue/PSQueue/pull/6)
+- Support GHC-9.6 [#9](https://github.com/PSQueue/PSQueue/pull/9)
+
+
 ### 1.1.1
 
 - Teo Camarasu takes over as maintainer [#1](https://github.com/TeofilC/PSQueue/pull/1)
