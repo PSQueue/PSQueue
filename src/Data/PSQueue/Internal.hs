@@ -466,19 +466,17 @@ omega = 4
 lbalance, rbalance ::
   Ord p => k -> p -> LTree k p -> k -> LTree k p -> LTree k p
 
-lbalance k p Start m r        = lloser        k p Start m r
-lbalance k p l m Start        = lloser        k p l m Start
 lbalance k p l m r
+  | size' r + size' l < 2     = lloser        k p l m r
   | size' r > omega * size' l = lbalanceLeft  k p l m r
   | size' l > omega * size' r = lbalanceRight k p l m r
-  | otherwise               = lloser        k p l m r
+  | otherwise                 = lloser        k p l m r
 
-rbalance k p Start m r        = rloser        k p Start m r
-rbalance k p l m Start        = rloser        k p l m Start
 rbalance k p l m r
+  | size' r + size' l < 2     = rloser        k p l m r
   | size' r > omega * size' l = rbalanceLeft  k p l m r
   | size' l > omega * size' r = rbalanceRight k p l m r
-  | otherwise               = rloser        k p l m r
+  | otherwise                 = rloser        k p l m r
 
 {-# INLINABLE lbalanceLeft #-}
 lbalanceLeft :: Ord p => k -> p -> LTree k p -> k -> LTree k p -> LTree k p
