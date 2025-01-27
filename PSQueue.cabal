@@ -47,3 +47,5 @@ test-suite test
       base
     , PSQueue
     , QuickCheck < 3
+    , tasty <1.6
+    , tasty-quickcheck <0.12
