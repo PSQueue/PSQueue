@@ -1,3 +1,12 @@
+
+### 1.2.1
+- Move Changelog.md to extra-doc-files section [#17](https://github.com/PSQueue/PSQueue/pull/17)
+- Use tasty in test suite [#16](https://github.com/PSQueue/PSQueue/pull/16)
+- Fix tree balancing logic (Thanks to @chowells79) [#15](https://github.com/PSQueue/PSQueue/pull/15)
+- Support GHC-9.12 [#13](https://github.com/PSQueue/PSQueue/pull/13)
+- Support GHC-9.10 [#12](https://github.com/PSQueue/PSQueue/pull/12)
+- Support GHC-9.8 [#11](https://github.com/PSQueue/PSQueue/pull/11)
+
 ### 1.2.0
 
 - Fix typos (Thanks to @Moiman) [#8](https://github.com/PSQueue/PSQueue/pull/8)
