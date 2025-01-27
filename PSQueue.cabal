@@ -19,7 +19,7 @@ description:
   from a list of bindings, sorted by keys, in linear time.
 
 tested-with:        GHC ==8.8.4 || ==8.10.7 || ==9.0.2 || ==9.2.4 || ==9.4.1 || ==9.6.1 || ==9.8.1 || ==9.10.1 || ==9.12.1
-extra-source-files: ChangeLog.md
+extra-doc-files: ChangeLog.md
 
 source-repository head
   type:     git
