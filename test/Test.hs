@@ -2,6 +2,8 @@
 import Data.PSQueue.Internal
 
 import Test.QuickCheck
+import Test.Tasty
+import Test.Tasty.QuickCheck
 import Data.List (sort)
 
 isBalanced Start = True
@@ -47,15 +49,10 @@ prop_MinView t =
         Nothing -> True
         Just (b2,_) -> prio b1 <= prio b2 && prop_MinView t'
 
-main =
-  do
-  putStrLn "Balanced"
-  quickCheck prop_Balanced
-  putStrLn "OrderedKeys"
-  quickCheck prop_OrderedKeys
-  putStrLn "MinView"
-  quickCheck prop_MinView
-  putStrLn "AtMost"
-  quickCheck prop_AtMost
-  putStrLn "AtMostRange"
-  quickCheck prop_AtMostRange
+main = defaultMain $ testGroup "Tests"
+  [ testProperty "Balanced" prop_Balanced
+  , testProperty "OrderedKeys" prop_OrderedKeys
+  , testProperty "MinView" prop_MinView
+  , testProperty "AtMost" prop_AtMost
+  , testProperty "AtMostRange" prop_AtMostRange
+  ]
