@@ -49,3 +49,4 @@ test-suite test
     , QuickCheck < 3
     , tasty <1.6
     , tasty-quickcheck <0.12
+    , tasty-hunit <0.11

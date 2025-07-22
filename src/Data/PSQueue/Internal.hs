@@ -1,4 +1,4 @@
-module Data.PSQueue.Internal 
+module Data.PSQueue.Internal
   (
   -- * Binding Type
     Binding(..)
@@ -75,11 +75,14 @@ module Data.PSQueue.Internal
   , play
   , TourView(..)
   , tourView
+  , ltreeDot
+  , pennantDot
   ) where
 
 import           Data.Function (on)
 import           Prelude hiding (foldl, foldr, lookup, null)
 import qualified Prelude as P
+import           Data.Char (ord, isSpace, isAlphaNum)
 
 -- | @k :-> p@ binds the key @k@ with the priority @p@.
 data Binding k p = !k :-> !p deriving (Eq,Ord,Show,Read)
@@ -193,7 +196,7 @@ delete k q =
       | otherwise      -> tl `play` delete k tr
 
 -- | /O(log n)/ Adjust the priority of a key.
-adjust ::  (Ord p, Ord k) => (p -> p) -> k -> PSQ k p -> PSQ k p
+adjust :: (Ord p, Ord k) => (p -> p) -> k -> PSQ k p -> PSQ k p
 adjust f = adjustWithKey (\_ p -> f p)
 
 -- | /O(log n)/ Adjust the priority of a key.
@@ -429,6 +432,11 @@ foldl f z q =
 
 type Size = Int
 
+-- LTree type from
+-- https://www.cs.ox.ac.uk/ralf.hinze/publications/ICFP01.pdf
+--
+-- This uses the augmented definition as outlined in Remark 3 in
+-- section 5.2 of the paper above.
 data LTree k p = Start
                | LLoser {-# UNPACK #-}!Size !k !p !(LTree k p) !k !(LTree k p)
                | RLoser {-# UNPACK #-}!Size !k !p !(LTree k p) !k !(LTree k p)
@@ -457,9 +465,16 @@ lloser, rloser :: k -> p -> LTree k p -> k -> LTree k p -> LTree k p
 lloser k p tl m tr =  LLoser (1 + size' tl + size' tr) k p tl m tr
 rloser k p tl m tr =  RLoser (1 + size' tl + size' tr) k p tl m tr
 
---balance factor
+-- balance factors, taken from http://fox.ucw.cz/papers/bbtree/bbtree.pdf
+--
+-- This paper provides proofs of the correctness of the balancing
+-- scheme, fixing some edge cases where a double rotation was
+-- preferred despite not restoring balance in a single update.
 omega :: Int
 omega = 4
+
+alpha :: Int
+alpha = 2
 
 {-# INLINABLE lbalance #-}
 {-# INLINABLE rbalance #-}
@@ -481,26 +496,26 @@ rbalance k p l m r
 {-# INLINABLE lbalanceLeft #-}
 lbalanceLeft :: Ord p => k -> p -> LTree k p -> k -> LTree k p -> LTree k p
 lbalanceLeft  k p l m r
-  | size' (left r) < size' (right r) = lsingleLeft  k p l m r
-  | otherwise                      = ldoubleLeft  k p l m r
+  | size' (left r) < alpha * size' (right r) = lsingleLeft  k p l m r
+  | otherwise                                = ldoubleLeft  k p l m r
 
 {-# INLINABLE lbalanceRight #-}
 lbalanceRight :: Ord p => k -> p -> LTree k p -> k -> LTree k p -> LTree k p
 lbalanceRight k p l m r
-  | size' (left l) > size' (right l) = lsingleRight k p l m r
-  | otherwise                      = ldoubleRight k p l m r
+  | alpha * size' (left l) > size' (right l) = lsingleRight k p l m r
+  | otherwise                                = ldoubleRight k p l m r
 
 {-# INLINABLE rbalanceLeft #-}
 rbalanceLeft :: Ord p => k -> p -> LTree k p -> k -> LTree k p -> LTree k p
 rbalanceLeft  k p l m r
-  | size' (left r) < size' (right r) = rsingleLeft  k p l m r
-  | otherwise                      = rdoubleLeft  k p l m r
+  | size' (left r) < alpha * size' (right r) = rsingleLeft k p l m r
+  | otherwise                                = rdoubleLeft k p l m r
 
 {-# INLINABLE rbalanceRight #-}
 rbalanceRight :: Ord p => k -> p -> LTree k p -> k -> LTree k p -> LTree k p
 rbalanceRight k p l m r
-  | size' (left l) > size' (right l) = rsingleRight k p l m r
-  | otherwise                      = rdoubleRight k p l m r
+  | alpha * size' (left l) > size' (right l) = rsingleRight k p l m r
+  | otherwise                                = rdoubleRight k p l m r
 
 
 
@@ -626,3 +641,80 @@ instance Show a => Show (Sequ a) where
 guard :: Bool -> Sequ a -> Sequ a
 guard False _as = emptySequ
 guard True  as  = as
+
+
+
+-------------------------------------------------------
+-- Helpers for rendering PSQs in graphviz dot format --
+-------------------------------------------------------
+
+dotLitS :: Show a => a -> String
+dotLitS = dotLit . show
+
+dotLit :: String -> String
+dotLit = concatMap subst
+  where
+    subst '<' = "&lt;"
+    subst '>' = "&gt;"
+    subst x
+        | isAlphaNum x = pure x
+        | isSpace x = pure x
+        | otherwise = "&#" ++ show (ord x) ++ ";"
+
+
+ltreeDot :: (Show k, Show p) => PSQ k p -> String
+ltreeDot x = "digraph g {\n" ++ inner x ++ "}\n"
+  where
+    inner Void = "    Void\n"
+    inner (Winner k p ltree m) = here ++ edge ++ children
+      where
+        here = "    0 [label=<(" ++ dotLitS k ++ ", " ++ dotLitS p ++ ") " ++
+               dotLitS m ++ ">]\n"
+        edge | n > 1 = "    0 -> 1\n"
+             | otherwise = ""
+        (n, children) = go 1 ltree
+
+    go n Start = (n, "")
+    go n (LLoser s k p l m r) = node n s k p l m r "larrow"
+    go n (RLoser s k p l m r) = node n s k p l m r "rarrow"
+
+    node n s k p l m r shape = (n'', here ++ ledge ++ redge ++ lc ++ rc)
+      where
+        pre = "    " ++ show n
+        here = pre ++ " [shape=" ++ shape ++ ";label=<" ++ show s ++
+               "<br/>&nbsp;(" ++ dotLitS k ++ ", " ++ dotLitS p ++ ") " ++
+               dotLitS m ++ "&nbsp;>;margin=0.1]\n"
+        ledge | n' > n + 1 = pre ++ " -> " ++ show (n + 1) ++ " [label=L]\n"
+              | otherwise = ""
+        redge | n'' > n' = pre ++ " -> " ++ show n' ++ " [label=R]\n"
+              | otherwise = ""
+        (n', lc) = go (n + 1) l
+        (n'', rc) = go n' r
+
+
+pennantDot :: (Show k, Show p, Ord p) => PSQ k p -> String
+pennantDot x = "digraph g {\n" ++ inner ++ "}\n"
+  where
+    inner = case x of
+      Void -> "    Null\n"
+      _ -> snd (go 1 (tourView x))
+
+    go n Null = (n, "")
+    go n (Single k p) = (n + 1, here)
+      where
+        here = "    " ++ show n ++ " [label=<" ++ dotLitS k ++ ", " ++
+               dotLitS p ++ ">]\n"
+    go n (Play l r) = (n'', here ++ left ++ right)
+      where
+        (n', left) = go (n + 1) (tourView l)
+        (n'', right) = go n' (tourView r)
+        here = maybe "" id $ do
+            bLeft <- findMin l
+            bRight <- findMin r
+            let (k :-> p, s) | prio bLeft <= prio bRight = (bLeft, "larrow")
+                             | otherwise                 = (bRight, "rarrow")
+                res = "    " ++ show n ++ " [label=<" ++ dotLitS k ++ ", " ++
+                      dotLitS p ++ ">;shape=" ++ s ++ "]\n" ++ "    " ++
+                      show n ++ " -> " ++ show (n + 1) ++ " [label=L]\n" ++
+                      "    " ++ show n ++ " -> " ++ show n' ++ " [label=R]\n"
+            pure res
