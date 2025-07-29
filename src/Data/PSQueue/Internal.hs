@@ -465,7 +465,8 @@ lloser, rloser :: k -> p -> LTree k p -> k -> LTree k p -> LTree k p
 lloser k p tl m tr =  LLoser (1 + size' tl + size' tr) k p tl m tr
 rloser k p tl m tr =  RLoser (1 + size' tl + size' tr) k p tl m tr
 
--- balance factors, taken from http://fox.ucw.cz/papers/bbtree/bbtree.pdf
+-- balance factors, taken from Milan Straka - Adams' Trees Revisited
+-- https://ufal.mff.cuni.cz/~straka/papers/2011-bbtree.pdf
 --
 -- This paper provides proofs of the correctness of the balancing
 -- scheme, fixing some edge cases where a double rotation was
